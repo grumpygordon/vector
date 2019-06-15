@@ -390,7 +390,7 @@ public:
 	}
 
 	const_reverse_iterator rend() const noexcept {
-		return const_reverse_iterator(rend());
+		return const_reverse_iterator(begin());
 	}
 
 	
@@ -479,19 +479,19 @@ public:
 			} else { 
 				T s(val);
 				val.~T();
-				swap(q, w.q);
+				std::swap(q, w.q);
 				new(&w.val) T(s);
-				swap(small, w.small);
+				std::swap(small, w.small);
 			}
 		} else {
 			if (w.small) {
 				T s(w.val);
 				w.val.~T();
-				swap(q, w.q);
+				std::swap(q, w.q);
 				new(&val) T(s);
-				swap(small, w.small);
+				std::swap(small, w.small);
 			} else {
-				swap(q, w.q);
+				std::swap(q, w.q);
 			}
 		}
 	}
@@ -507,26 +507,40 @@ public:
 	bool operator !=(vector const &w) noexcept {
 		return !(*this == w);
 	}
-	bool operator <(vector const &w) noexcept {
-		size_t x = (small ? 1 : q == nullptr ? 0 : size_()), y = w.size();
-		for (size_t i = 0; i < std::min(x, y); i++)
-			if ((*this)[i] != w[i])
-				return (*this)[i] < w[i];
-		return x < y;
-	}
-	bool operator >(vector const &w) noexcept {
-		return w < *this;
-	}
-	bool operator <=(vector const &w) noexcept {
-		return !(*this > w);
-	}
-	bool operator >=(vector const &w) noexcept {
-		return !(*this < w);
-	}
-	friend void swap(vector &a, vector &b);
+	template<typename U>
+	friend bool operator <(vector<U> const &a, vector<U> const &b) noexcept;
+	template<typename U>
+	friend bool operator <=(vector<U> const &a, vector<U> const &b) noexcept;
+	template<typename U>
+	friend bool operator >(vector<U> const &a, vector<U> const &b) noexcept;
+	template<typename U>
+	friend bool operator >=(vector<U> const &a, vector<U> const &b) noexcept;
+	template<typename U>
+	friend void swap(vector<U> &a, vector<U> &b);
 };
 template<typename T>
-friend void swap(vector<T> &a, vector<T> &b) {
+bool operator <(vector<T> const &a, vector<T> const &b) noexcept {
+	size_t x = a.size(), y = b.size();
+	for (size_t i = 0; i < std::min(x, y); i++)
+		if (a[i] != b[i])
+			return a[i] < b[i];
+	return x < y;
+}
+
+template<typename T>
+bool operator >(vector<T> const &a, vector<T> const &b) noexcept {
+	return b < a;
+}
+template<typename T>
+bool operator <=(vector<T> const &a, vector<T> const &b) noexcept {
+	return !(a > b);
+}
+template<typename T>
+bool operator >=(vector<T> const &a, vector<T> const &b) noexcept {
+	return !(a < b);
+}
+template<typename T>
+void swap(vector<T> &a, vector<T> &b) {
 	a.swap(b);
 }
 
