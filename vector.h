@@ -108,13 +108,13 @@ private:
 		}
 	}
 
-	size_t& size_() noexcept {
+	size_t& size_() const noexcept {
 		return *q;
 	}
-	size_t& capacity_() noexcept {
+	size_t& capacity_() const noexcept {
 		return *(q + 1);
 	}
-	size_t& refs() noexcept {
+	size_t& refs() const noexcept {
 		return *(q + 2);
 	}
 
@@ -241,7 +241,6 @@ public:
     T const &operator[](size_t i) const noexcept {
 		if (small)
 			return val;
-		control();
 		return *(reinterpret_cast<T*>(q + 3) + i);
 	}
 	
@@ -282,7 +281,7 @@ public:
 			return *q;
 	}
 
-	size_t capacity_() const noexcept {
+	size_t capacity() const noexcept {
 		if (small)
 			return 1;
 		else if (q == nullptr)
@@ -303,7 +302,7 @@ public:
 		fig(size_());
 	}
 	
-	void resize(size_t n, const T &w) {
+	void resize(size_t n, const T w) {
 		size_t N = (small ? 1 : q == nullptr ? 0 : *q);
 		fig(std::min(N, n));
 		while (N < n)
@@ -317,7 +316,7 @@ public:
 			size_() = 0;
 	}
 
-	void push_back(const T &w) {
+	void push_back(const T w) {
 		if (!small && q == nullptr) {
 			new (&val) T(w);
 			small = true;
@@ -380,7 +379,7 @@ public:
 		return reinterpret_cast<T*>(q + 3) - 1;
 	}
 	
-	iterator insert(const_iterator pos, T const& w) {
+	iterator insert(const_iterator pos, T const w) {
 		control();
 		size_t id = 0;
 		const_iterator cpos = begin();
