@@ -70,7 +70,7 @@ private:
 				T vw(front());
 				del();
 				small = true;
-				val = vw;
+				new (&val) T(vw);
 			} else {
 				del();
 				small = true;
