@@ -335,6 +335,7 @@ public:
 		}
 		control();
 		size_()--;
+		(*this)[size_()].~T();
 		make();
 	}
 
