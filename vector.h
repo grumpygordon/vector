@@ -523,6 +523,11 @@ public:
 	bool operator >=(vector const &w) noexcept {
 		return !(*this < w);
 	}
+	friend void swap(vector &a, vector &b);
 };
+template<typename T>
+friend void swap(vector<T> &a, vector<T> &b) {
+	a.swap(b);
+}
 
 #endif // VECTOR_H
