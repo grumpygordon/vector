@@ -246,25 +246,24 @@ public:
 	
 	T* data() noexcept {
 		if (small) {
-			return *val;
+			return &val;
 		} else {
 			control();
 			if (q == nullptr)
 				return nullptr;
 			else
-				return q + 3;
+				return reinterpret_cast<T*>(q + 3);
 		}
 	}
 
 	const T* data() const noexcept {
 		if (small) {
-			return *val;
+			return &val;
 		} else {
-			control();
 			if (q == nullptr)
 				return nullptr;
 			else
-				return q + 3;
+				return reinterpret_cast<T*>(q + 3);
 		}
 	}
 
@@ -360,24 +359,40 @@ public:
 	}
 	
 	reverse_iterator rbegin() noexcept {
-		if (small)
-			return reverse_iterator(&val);
-		if (q == nullptr)
-			return reverse_iterator(nullptr);
-		return reverse_iterator(&back());
+		return reverse_iterator(end());
 	}
 
 	reverse_iterator rend() noexcept {
+		return reverse_iterator(begin());
+	}
+	
+	const_iterator begin() const noexcept {
+		if (small)
+			return const_iterator(&val);
+		if (q == nullptr)
+			return const_iterator(nullptr);
+		return const_iterator(&(*this)[0]);
+	}
+	
+	const_iterator end() const noexcept {
 		if (small) {
-			iterator it = &val;
+			const_iterator it = &val;
 			it++;
-			return reverse_iterator(it);
+			return it;
 		}
 		if (q == nullptr)
-			return reverse_iterator(nullptr);
-		control();
-		return reinterpret_cast<T*>(q + 3) - 1;
+			return const_iterator(nullptr);
+		return const_iterator(reinterpret_cast<T*>(q + 3) + size_());
 	}
+	
+	const_reverse_iterator rbegin() const noexcept {
+		return const_reverse_iterator(end());
+	}
+
+	const_reverse_iterator rend() const noexcept {
+		return const_reverse_iterator(rend());
+	}
+
 	
 	iterator insert(const_iterator pos, T const w) {
 		control();
