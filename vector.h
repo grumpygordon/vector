@@ -266,7 +266,7 @@ public:
 	}
 
 	void shrink_to_fit() {
-		if (small || q == nullptr)
+		if (small || q == nullptr || capacity_() == size_())
 			return;
 		fig(size_());
 	}
@@ -274,8 +274,10 @@ public:
 	void resize(size_t n, const T w) {
 		size_t N = (small ? 1 : q == nullptr ? 0 : *q);
 		fig(std::min(N, n));
-		while (N < n)
+		while (N < n) {
 			push_back(w);
+			N++;
+		}
 	}
 	
 	void clear() noexcept {
