@@ -27,7 +27,7 @@ private:
 			*(p + 2) = 1;
 			try {
 				T* st = reinterpret_cast<T*>(q + 3);
-				for (size_t i = 0; i < n; i++, st++)
+				for (i = 0; i < n; i++, st++)
 					new (reinterpret_cast<T*>(p + 3) + i) T(*st);
 			} catch (...) {
 				for (size_t j = 0; j < i; j++)
@@ -40,7 +40,7 @@ private:
 		}
 	}
 
-	void del() noexcept {
+	void del() {
 		if (!small) {
 			if (q != nullptr) {
 				if (refs() == 1) {
@@ -70,10 +70,15 @@ private:
 				T vw(front());
 				del();
 				small = true;
-				new (&val) T(vw);
+				try {
+					new (&val) T(vw);
+				} catch (...) {
+					q = nullptr;
+					small = false;
+					throw;
+				}
 			} else {
 				del();
-				small = true;
 			}
 			return;
 		}
@@ -84,8 +89,7 @@ private:
 			*(p + 1) = n;
 			*(p + 2) = 1;
 			if (small) {
-				if (N > 0)
-					new (reinterpret_cast<T*>(p + 3)) T(val);
+				new (reinterpret_cast<T*>(p + 3)) T(val);
 			} else {
 				T* st = reinterpret_cast<T*>(p + 3);
 				for (i = 0; i < std::min(N, n); i++, st++)
@@ -97,14 +101,7 @@ private:
 			for (size_t j = 0; j < i; j++)
 				(*(reinterpret_cast<T*>(p + 3) + j)).~T();
 			operator delete [] (p);
-		}
-	}
-	
-	void make() {
-		if (!small && q != nullptr && size_() == 1) {
-			T w((*this)[0]);
-			del();
-			push_back(w);
+			throw;
 		}
 	}
 
@@ -125,10 +122,16 @@ public:
 	typedef std::reverse_iterator<T*> reverse_iterator;
 	typedef std::reverse_iterator<const T*> const_reverse_iterator;
 
-    vector() : q(nullptr), small(false) {}
+    vector() noexcept : q(nullptr), small(false) {}
 	vector(vector const &w) : small(w.small) {
 		if (small) {
-			new (&val) T(w.val);
+			try {
+				new (&val) T(w.val);
+			} catch (...) {
+				small = false;
+				q = nullptr;
+				throw;
+			}
 		} else {
 			q = w.q;
 			if (q != nullptr)
@@ -140,39 +143,33 @@ public:
 		del();
 	}
 
-    vector(size_t n, T w) {
+    vector(size_t n, T w) : q(nullptr), small(false) {
 		if (n == 1) {
 			small = true;
-			new (&val) T(w);
-		} else {
-			small = false;
-			if (n == 0) {
+			try {
+				new (&val) T(w);
+			} catch (...) {
+				small = false;
 				q = nullptr;
-			} else {
-				q = operator new[] (3 * sizeof(size_t) + n * sizeof(T));
-				size_() = n;
-				capacity_() = n;
-				refs() = 1;
-				T* st = q + 3;
-				size_t i;
-				try {
-					for (i = 0; i < n; i++, st++)
-						new(st) T(w);
-				} catch(...) {
-					for (size_t j = 0; j < i; j++)
-						(*this)[j].~T();
-					operator delete[] (q);
-					throw;
-				}
+				throw;
 			}
+		} else {
+			for (size_t i = 0; i < n; i++)
+				push_back(w);
 		}
 	}
 
-    vector &operator=(vector const &w) noexcept {
+    vector &operator=(vector const &w) {
 		del();
 		small = w.small;
 		if (small) {
-			new (&val) T(w.val);
+			try {
+				new (&val) T(w.val);
+			} catch (...) {
+				small = false;
+				q = nullptr;
+				throw;
+			}
 		} else {
 			q = w.q;
 			if (q != nullptr)
@@ -182,9 +179,7 @@ public:
 	}
 
     template <typename InputIterator>
-    vector(InputIterator first, InputIterator last) {
-		small = false;
-		q = nullptr;
+    vector(InputIterator first, InputIterator last) : q(nullptr), small(false) {
 		while (first != last) {
 			push_back(*first);
 			first++;
@@ -199,7 +194,7 @@ public:
 		}
 	}
 
-    T& back() noexcept {
+    T& back() {
 		if (small) {
 			return val;
 		} else {
@@ -215,7 +210,7 @@ public:
 		}
 	}
 	
-	T& front() noexcept {
+	T& front() {
 		if (small) {
 			return val;
 		} else {
@@ -231,7 +226,7 @@ public:
 		}
 	}
 
-    T &operator[](size_t i) noexcept {
+    T &operator[](size_t i) {
 		if (small)
 			return val;
 		control();
@@ -244,27 +239,12 @@ public:
 		return *(reinterpret_cast<T*>(q + 3) + i);
 	}
 	
-	T* data() noexcept {
-		if (small) {
-			return &val;
-		} else {
-			control();
-			if (q == nullptr)
-				return nullptr;
-			else
-				return reinterpret_cast<T*>(q + 3);
-		}
+	T* data() {
+		return begin();
 	}
 
 	const T* data() const noexcept {
-		if (small) {
-			return &val;
-		} else {
-			if (q == nullptr)
-				return nullptr;
-			else
-				return reinterpret_cast<T*>(q + 3);
-		}
+		return begin();
 	}
 
 	bool empty() const noexcept {
@@ -272,21 +252,11 @@ public:
 	}
 
 	size_t size() const noexcept {
-		if (small)
-			return 1;
-		else if (q == nullptr)
-			return 0;
-		else
-			return *q;
+		return small ? 1 : q == nullptr ? 0 : *q;
 	}
 
 	size_t capacity() const noexcept {
-		if (small)
-			return 1;
-		else if (q == nullptr)
-			return 0;
-		else
-			return *(q + 1);
+		return small ? 1 : q == nullptr ? 0 : *(q + 1);
 	}
 
 	void reserve(size_t n) {
@@ -296,7 +266,7 @@ public:
 	}
 
 	void shrink_to_fit() {
-		if (small || (!small && q == nullptr))
+		if (small || q == nullptr)
 			return;
 		fig(size_());
 	}
@@ -309,16 +279,20 @@ public:
 	}
 	
 	void clear() noexcept {
-		if (small)
-			small = false;
-		else if (q != nullptr)
-			size_() = 0;
+		del();
 	}
 
 	void push_back(const T w) {
+		control();
 		if (!small && q == nullptr) {
-			new (&val) T(w);
 			small = true;
+			try {
+				new (&val) T(w);
+			} catch (...) {
+				q = nullptr;
+				small = false;
+				throw;
+			}
 			return;
 		}
 		size_t n = (small ? 1 : size_());
@@ -328,35 +302,31 @@ public:
 		size_()++;
 	}
 
-    void pop_back() noexcept {
+    void pop_back() {
 		if (small || q == nullptr) {
 			del();
 			return;
 		}
 		control();
+		(*this)[size_() - 1].~T();
 		size_()--;
-		(*this)[size_()].~T();
-		make();
+		if (size_() == 0)
+			del();
 	}
 
 	iterator begin() noexcept {
-		if (small)
-			return &val;
-		if (q == nullptr)
-			return nullptr;
-		return &(*this)[0];
+		control();
+		return small ? &val : q == nullptr ? nullptr : &(*this)[0];
 	}
 
 	iterator end() noexcept {
+		control();
 		if (small) {
 			iterator it = &val;
 			it++;
 			return it;
 		}
-		if (q == nullptr)
-			return nullptr;
-		control();
-		return reinterpret_cast<T*>(q + 3) + size_();
+		return q == nullptr ? nullptr : reinterpret_cast<T*>(q + 3) + size_();
 	}
 	
 	reverse_iterator rbegin() noexcept {
@@ -368,11 +338,7 @@ public:
 	}
 	
 	const_iterator begin() const noexcept {
-		if (small)
-			return const_iterator(&val);
-		if (q == nullptr)
-			return const_iterator(nullptr);
-		return const_iterator(&(*this)[0]);
+		return const_iterator(small ? &val : q == nullptr ? nullptr : &(*this)[0]);
 	}
 	
 	const_iterator end() const noexcept {
@@ -381,9 +347,7 @@ public:
 			it++;
 			return it;
 		}
-		if (q == nullptr)
-			return const_iterator(nullptr);
-		return const_iterator(reinterpret_cast<T*>(q + 3) + size_());
+		return const_iterator(q == nullptr ? nullptr : reinterpret_cast<T*>(q + 3) + size_());
 	}
 	
 	const_reverse_iterator rbegin() const noexcept {
@@ -402,12 +366,6 @@ public:
 		while (cpos != pos)
 			cpos++, id++;
 		size_t n = (small ? 1 : q == nullptr ? 0 : size_());
-		if (id == n) {
-			push_back(w);
-			iterator it = end();
-			it--;
-			return it;
-		}
 		size_t *p = reinterpret_cast<size_t*>(operator new[] (3 * sizeof(size_t) + (n + 1) * sizeof(T)));
 		*p = n + 1;
 		*(p + 1) = *p;
@@ -417,8 +375,8 @@ public:
 			for (i = 0; i < id; i++)
 				new (reinterpret_cast<T*>(p + 3) + i) T((*this)[i]);
 			new (reinterpret_cast<T*>(p + 3) + id) T(w);
-			for (i = id; i < n; i++)
-				new (reinterpret_cast<T*>(p + 3) + i + 1) T((*this)[i]);
+			for (i = id + 1; i <= n; i++)
+				new (reinterpret_cast<T*>(p + 3) + i) T((*this)[i - 1]);
 			del();
 			q = p;
 		} catch (...) {
@@ -427,7 +385,6 @@ public:
 			operator delete[] (p);
 			throw;
 		}
-		make();
 		return begin() + id;
 	}
 
@@ -469,33 +426,9 @@ public:
 			operator delete[] (p);
 			throw;
 		}
-		make();
 		return begin() + le;
 	}
 	
-	void swap(vector &w) {
-		if (small) {
-			if (w.small) {
-				std::swap(val, w.val);
-			} else { 
-				T s(val);
-				val.~T();
-				std::swap(q, w.q);
-				new(&w.val) T(s);
-				std::swap(small, w.small);
-			}
-		} else {
-			if (w.small) {
-				T s(w.val);
-				w.val.~T();
-				std::swap(q, w.q);
-				new(&val) T(s);
-				std::swap(small, w.small);
-			} else {
-				std::swap(q, w.q);
-			}
-		}
-	}
 	bool operator ==(vector const &w) noexcept {
 		size_t x = (small ? 1 : q == nullptr ? 0 : size_()), y = w.size();
 		if (x != y)
@@ -542,7 +475,32 @@ bool operator >=(vector<T> const &a, vector<T> const &b) noexcept {
 }
 template<typename T>
 void swap(vector<T> &a, vector<T> &b) {
-	a.swap(b);
+	using namespace std;
+	if (a.small) {
+		if (b.small) {
+			swap(a.val, b.val);
+		} else {
+			T s(a.val);
+			a.val.~T();
+			a.q = b.q;
+			a.small = false;
+			b.q = nullptr;
+			new(&b.val) T(s);
+			b.small = true;
+		}
+	} else {
+		if (b.small) {
+			T s(b.val);
+			b.val.~T();
+			b.q = a.q;
+			b.small = false;
+			a.q = nullptr;
+			new(&a.val) T(s);
+			a.small = true;
+		} else {
+			swap(a.q, b.q);
+		}
+	}
 }
 
 #endif // VECTOR_H
