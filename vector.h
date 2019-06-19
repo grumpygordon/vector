@@ -271,16 +271,14 @@ public:
 			return;
 		fig(size_());
 	}
-	
+
 	void resize(size_t n, const T w) {
-		size_t N = (small ? 1 : q == nullptr ? 0 : *q);
+		del();
 		fig(n);
-		while (N < n) {
+		for (size_t i = 0; i < n; i++)
 			push_back(w);
-			N++;
-		}
 	}
-	
+
 	void clear() noexcept {
 		del();
 	}
