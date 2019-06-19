@@ -154,6 +154,7 @@ public:
 				throw;
 			}
 		} else {
+			fig(n);
 			for (size_t i = 0; i < n; i++)
 				push_back(w);
 		}
@@ -273,7 +274,7 @@ public:
 	
 	void resize(size_t n, const T w) {
 		size_t N = (small ? 1 : q == nullptr ? 0 : *q);
-		fig(std::min(N, n));
+		fig(n);
 		while (N < n) {
 			push_back(w);
 			N++;
