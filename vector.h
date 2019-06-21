@@ -18,28 +18,6 @@ private:
 	};
 	bool small;
 
-	void control() {
-		if (!small && q != nullptr && refs() != 1) {
-			size_t i = 0, n = size_();
-			size_t *p = reinterpret_cast<size_t*>(operator new[] (3 * sizeof(size_t) + capacity_() * sizeof(T)));
-			*p = *q;
-			*(p + 1) = *(q + 1);
-			*(p + 2) = 1;
-			try {
-				T* st = reinterpret_cast<T*>(q + 3);
-				for (i = 0; i < n; i++, st++)
-					new (reinterpret_cast<T*>(p + 3) + i) T(*st);
-			} catch (...) {
-				for (size_t j = 0; j < i; j++)
-					(*(reinterpret_cast<T*>(p + 3) + j)).~T();
-				operator delete[] (p);
-				throw;
-			}
-			refs()--;
-			q = p;
-		}
-	}
-
 	void del() {
 		if (!small) {
 			if (q != nullptr) {
@@ -59,22 +37,29 @@ private:
 		q = nullptr;
 	}
 
+	void fig() {
+		fig(capacity());
+	}
+
 	void fig(size_t n) {
 		if (n == 0) {
 			del();
 			return;
 		}
-		size_t i = 0, N = (small ? 1 : q == nullptr ? 0 : size_());
+		if (n == capacity() && (small || (q != nullptr && refs() == 1)))
+			return;
+		size_t N = size();
 		if (n == 1) {
 			if (N > 0) {
 				T vw(front());
+				vector q1(*this);
 				del();
-				small = true;
 				try {
 					new (&val) T(vw);
+					small = true;
 				} catch (...) {
 					q = nullptr;
-					small = false;
+					*this = q1;
 					throw;
 				}
 			} else {
@@ -82,18 +67,17 @@ private:
 			}
 			return;
 		}
-		size_t *p = reinterpret_cast<size_t*>(operator new[] (3 * sizeof(size_t) + n * sizeof(T)));
+		size_t i = 0, *p = reinterpret_cast<size_t*>(operator new[] (3 * sizeof(size_t) + n * sizeof(T)));
+		*p = std::min(N, n);
+		*(p + 1) = n;
+		*(p + 2) = 1;
 		try {
-			control();
-			*p = std::min(N, n);
-			*(p + 1) = n;
-			*(p + 2) = 1;
 			if (small) {
 				new (reinterpret_cast<T*>(p + 3)) T(val);
 			} else {
 				T* st = reinterpret_cast<T*>(p + 3);
 				for (i = 0; i < std::min(N, n); i++, st++)
-					new (st) T((*this)[i]);
+					new (st) T(this->at(i));
 			}
 			del();
 			q = p;
@@ -103,6 +87,12 @@ private:
 			operator delete [] (p);
 			throw;
 		}
+	}
+
+	T at(size_t i) const {
+		if (small)
+			return val;
+		return *(reinterpret_cast<T*>(q + 3) + i);
 	}
 
 	size_t& size_() const noexcept {
@@ -161,20 +151,23 @@ public:
 	}
 
     vector &operator=(vector const &w) {
-		del();
-		small = w.small;
-		if (small) {
-			try {
-				new (&val) T(w.val);
-			} catch (...) {
-				small = false;
-				q = nullptr;
-				throw;
-			}
-		} else {
+		if (!w.small) {
+			del();
 			q = w.q;
 			if (q != nullptr)
 				refs()++;
+		} else if (small) {
+			val = w.val;
+		} else {
+			vector q1(*this);
+			del();
+			try {
+				new (&val) T(w.val);
+				small = true;
+			} catch (...) {
+				*this = q1;
+				throw;
+			}
 		}
 		return *this;
 	}
@@ -188,11 +181,8 @@ public:
 	}
     template <typename InputIterator>
     void assign(InputIterator first, InputIterator last) {
-		del();
-		while (first != last) {
-			push_back(*first);
-			first++;
-		}
+		vector w(first, last);
+		*this = w;
 	}
 
     T& back() {
@@ -230,7 +220,7 @@ public:
     T &operator[](size_t i) {
 		if (small)
 			return val;
-		control();
+		fig();
 		return *(reinterpret_cast<T*>(q + 3) + i);
 	}
 
@@ -261,22 +251,29 @@ public:
 	}
 
 	void reserve(size_t n) {
-		if (n <= 1 || (!small && q != nullptr && capacity_() >= n))
+		if (n <= 1 || capacity() >= n)
 			return;
 		fig(n);
 	}
 
 	void shrink_to_fit() {
-		if (small || q == nullptr || capacity_() == size_())
+		if (capacity() == size())
 			return;
-		fig(size_());
+		fig(size());
 	}
 
 	void resize(size_t n, const T w) {
-		del();
-		fig(n);
-		for (size_t i = 0; i < n; i++)
-			push_back(w);
+		if (n <= size()) {
+			fig(n);
+			return;
+		}
+		vector g;
+		g.reserve(n);
+		for (size_t i = 0; i < size(); i++)
+			g.push_back((*this)[i]);
+		while (g.size() < n)
+			g.push_back(w);
+		*this = g;
 	}
 
 	void clear() noexcept {
@@ -284,7 +281,7 @@ public:
 	}
 
 	void push_back(const T w) {
-		control();
+		fig();
 		if (!small && q == nullptr) {
 			small = true;
 			try {
@@ -296,8 +293,8 @@ public:
 			}
 			return;
 		}
-		size_t n = (small ? 1 : size_());
-		if (small || capacity_() == n)
+		size_t n = size();
+		if (small || capacity() == n)
 			reserve(2 * n);
 		new (reinterpret_cast<T*>(q + 3) + n) T(w);
 		size_()++;
@@ -308,20 +305,20 @@ public:
 			del();
 			return;
 		}
-		control();
+		fig();
 		(*this)[size_() - 1].~T();
 		size_()--;
 		if (size_() == 0)
 			del();
 	}
 
-	iterator begin() noexcept {
-		control();
+	iterator begin() {
+		fig();
 		return small ? &val : q == nullptr ? nullptr : &(*this)[0];
 	}
 
-	iterator end() noexcept {
-		control();
+	iterator end() {
+		fig();
 		if (small) {
 			iterator it = &val;
 			it++;
@@ -330,11 +327,11 @@ public:
 		return q == nullptr ? nullptr : reinterpret_cast<T*>(q + 3) + size_();
 	}
 	
-	reverse_iterator rbegin() noexcept {
+	reverse_iterator rbegin() {
 		return reverse_iterator(end());
 	}
 
-	reverse_iterator rend() noexcept {
+	reverse_iterator rend() {
 		return reverse_iterator(begin());
 	}
 	
@@ -361,7 +358,7 @@ public:
 
 	
 	iterator insert(const_iterator pos, T const w) {
-		control();
+		fig();
 		size_t id = 0;
 		const_iterator cpos = begin();
 		while (cpos != pos)
@@ -394,7 +391,7 @@ public:
 	}
 
 	iterator erase(const_iterator L, const_iterator R) {
-		control();
+		fig();
 		size_t le = 0, re = 0;
 		const_iterator cpos = begin();
 		while (cpos != L)
@@ -476,30 +473,38 @@ bool operator >=(vector<T> const &a, vector<T> const &b) noexcept {
 }
 template<typename T>
 void swap(vector<T> &a, vector<T> &b) {
-	using namespace std;
 	if (a.small) {
 		if (b.small) {
+			using namespace std;
 			swap(a.val, b.val);
 		} else {
-			T s(a.val);
+			vector<T> c(b);
+			try {
+				new (&b.val) T(a.val);
+			} catch (...) {
+				b.q = c.q;
+				throw;
+			}
 			a.val.~T();
-			a.q = b.q;
-			a.small = false;
-			b.q = nullptr;
-			new(&b.val) T(s);
 			b.small = true;
+			a.q = c.q;
+			a.small = false;
 		}
 	} else {
 		if (b.small) {
-			T s(b.val);
+			vector<T> c(a);
+			try {
+				new (&a.val) T(b.val);
+			} catch (...) {
+				a.q = c.q;
+				throw;
+			}
 			b.val.~T();
-			b.q = a.q;
-			b.small = false;
-			a.q = nullptr;
-			new(&a.val) T(s);
 			a.small = true;
+			b.q = c.q;
+			b.small = false;
 		} else {
-			swap(a.q, b.q);
+			std::swap(a.q, b.q);
 		}
 	}
 }
