@@ -358,6 +358,53 @@ public:
 
 	
 	iterator insert(const_iterator pos, T const w) {
+		size_t id = size();
+		const_iterator cpos = end();
+		while (cpos != pos)
+			cpos--, id--;
+		if (id == size()) {
+			push_back(w);
+			return begin() + id;
+		}
+		if (capacity() == size())
+			fig(2 * capacity());
+		else
+			fig();
+		size_t i = id, n = size();
+		T s(w);
+		for (; i < n; i++) {
+			using namespace std;
+			swap(s, (*this)[i]);
+		}
+		new (&(*this)[size()]) T(s);
+		size_()++;
+		return begin() + id;
+	}
+
+	iterator erase(const_iterator L, const_iterator R) {
+		size_t re = size();
+		const_iterator cpos = end();
+		while (cpos != R)
+			cpos--, re--;
+		size_t le = re;
+		while (cpos != L)
+			cpos--, le--;
+		if (L == R)
+			return begin() + le;
+		fig();
+		if (re - le == size()) {
+			del();
+			return begin();
+		}
+		size_t n = size();
+		for (size_t i = le; i + re - le < n; i++)
+			(*this)[i] = (*this)[i + re - le];
+		for (size_t i = 0; i < re - le; i++)
+			pop_back();
+		return begin() + le;
+	}
+/*	
+	iterator insert(const_iterator pos, T const w) {
 		fig();
 		size_t id = 0;
 		const_iterator cpos = begin();
@@ -384,10 +431,6 @@ public:
 			throw;
 		}
 		return begin() + id;
-	}
-
-	iterator erase(const_iterator pos) {
-		return erase(pos, pos + 1);
 	}
 
 	iterator erase(const_iterator L, const_iterator R) {
@@ -425,6 +468,11 @@ public:
 			throw;
 		}
 		return begin() + le;
+	}
+*/
+
+	iterator erase(const_iterator pos) {
+		return erase(pos, pos + 1);
 	}
 	
 	bool operator ==(vector const &w) noexcept {
