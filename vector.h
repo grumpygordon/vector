@@ -46,7 +46,7 @@ private:
 			del();
 			return;
 		}
-		if (n == capacity() && (small || (q != nullptr && refs() == 1)))
+		if (n == capacity() && (small || (!small && q == nullptr) || (!small && q != nullptr && refs() == 1)))
 			return;
 		size_t N = size();
 		if (n == 1) {
@@ -77,7 +77,7 @@ private:
 			} else {
 				T* st = reinterpret_cast<T*>(p + 3);
 				for (i = 0; i < std::min(N, n); i++, st++)
-					new (st) T(this->at(i));
+					new (st) T(*(reinterpret_cast<T*>(q + 3) + i));
 			}
 			del();
 			q = p;
@@ -87,12 +87,6 @@ private:
 			operator delete [] (p);
 			throw;
 		}
-	}
-
-	T at(size_t i) const {
-		if (small)
-			return val;
-		return *(reinterpret_cast<T*>(q + 3) + i);
 	}
 
 	size_t& size_() const noexcept {
@@ -158,6 +152,16 @@ public:
 				refs()++;
 		} else if (small) {
 			val = w.val;
+			/*
+			val.~T();
+			small = false;
+			try {
+				new (&val) T(w.val);
+			} catch (...) {
+				q = nullptr;
+				throw;
+			}
+			small = true;*/
 		} else {
 			vector q1(*this);
 			del();
@@ -174,9 +178,30 @@ public:
 
     template <typename InputIterator>
     vector(InputIterator first, InputIterator last) : q(nullptr), small(false) {
-		while (first != last) {
-			push_back(*first);
-			first++;
+		size_t n = 0;
+		InputIterator kek = first;
+		while (kek != last)
+			kek++, n++;
+		if (n == 0)
+			return;
+		size_t i = 0;
+		q = reinterpret_cast<size_t*>(operator new[] (3 * sizeof(size_t) + n * sizeof(T)));
+		*q = n;
+		*(q + 1) = n;
+		*(q + 2) = 1;
+		try {
+			T* st = reinterpret_cast<T*>(q + 3);
+			while (first != last) {
+				new (st) T(*first);
+				st++;
+				i++;
+				first++;
+			}
+		} catch (...) {
+			for (size_t j = 0; j < i; j++)
+				(*(reinterpret_cast<T*>(q + 3) + j)).~T();
+			operator delete[] (q);
+			throw;
 		}
 	}
     template <typename InputIterator>
@@ -280,7 +305,7 @@ public:
 		del();
 	}
 
-	void push_back(const T w) {
+	void push_back(T const w) {
 		fig();
 		if (!small && q == nullptr) {
 			small = true;
@@ -314,7 +339,7 @@ public:
 
 	iterator begin() {
 		fig();
-		return small ? &val : q == nullptr ? nullptr : &(*this)[0];
+		return small ? &val : (q == nullptr ? &val : (&(*this)[0]));
 	}
 
 	iterator end() {
@@ -324,7 +349,7 @@ public:
 			it++;
 			return it;
 		}
-		return q == nullptr ? nullptr : reinterpret_cast<T*>(q + 3) + size_();
+		return q == nullptr ? &val : (reinterpret_cast<T*>(q + 3) + size_());
 	}
 	
 	reverse_iterator rbegin() {
